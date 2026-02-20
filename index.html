@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USIA Campus AR</title>
+
+    <!-- STEP 2A: Load A-Frame -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+
+    <!-- STEP 2B: Load AR.js (location-based version) -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+
+    <!-- STEP 2C: Load AR.js location component -->
+    <script src="https://raw.githack.com/nicholasgasior/aframe-look-at/master/dist/aframe-look-at-component.min.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- ═══════════════════════════════════════════
+       AR SCENE — camera opens automatically here
+       arjs: uses GPS location
+       vr-mode-ui: disabled (not VR, it's AR)
+       renderer: logs removed for clean mobile view
+  ════════════════════════════════════════════ -->
+    <a-scene
+      arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+      vr-mode-ui="enabled: false"
+      renderer="logarithmicDepthBuffer: true; precision: medium;"
+      embedded
+    >
+      <!-- STEP 2D: Camera entity — AR.js controls this -->
+      <a-camera gps-camera rotation-reader></a-camera>
+
+      <!-- STEP 2E: AR place entities will be injected here by app.js -->
+      <!-- Each place = one <a-entity> with gps-entity-place component -->
+    </a-scene>
+
+    <!-- ═══════════════════════════════════════════
+       UI LAYER — sits on top of AR scene
+  ════════════════════════════════════════════ -->
+    <div id="ui">
+      <!-- Top bar -->
+      <div id="top-bar">
+        <span id="app-title">🎓 USIA Navigator</span>
+        <button id="emergency-btn">🚨 Emergency</button>
+      </div>
+
+      <!-- Destination selector -->
+      <div id="dest-panel">
+        <label>📍 Go To:</label>
+        <select id="place-select">
+          <option value="">-- Select Destination --</option>
+        </select>
+      </div>
+
+      <!-- Simulate user location (since GPS may not match campus) -->
+      <div id="gps-status">📡 Getting your location...</div>
+
+      <!-- Distance HUD -->
+      <div id="hud">
+        <div id="dist-label">Select a destination</div>
+        <div id="arrived-msg" class="hidden">✅ You have arrived!</div>
+      </div>
+
+      <!-- Info popup -->
+      <div id="info-popup" class="hidden">
+        <button id="close-popup">✕</button>
+        <h2 id="popup-name"></h2>
+        <p id="popup-desc"></p>
+        <p id="popup-hours"></p>
+        <p id="popup-contact"></p>
+      </div>
+
+      <!-- Emergency red flash border -->
+      <div id="emergency-overlay"></div>
+    </div>
+
+    <!-- Scripts in correct order -->
+    <script src="locations.js"></script>
+    <script src="navigation.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
