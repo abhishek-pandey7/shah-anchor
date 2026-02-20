@@ -1,81 +1,314 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no"
-    />
-    <title>USIA Campus AR</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <!-- A-Frame AR Scene (camera + 3D GPS labels) -->
-    <a-scene
-      arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
-      vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true; precision: medium;"
-      embedded
-    >
-      <a-camera gps-camera rotation-reader></a-camera>
-    </a-scene>
 
-    <!-- UI Layer -->
-    <div id="ui">
-      <!-- Top bar -->
-      <div id="top-bar">
-        <span id="app-title">🎓 USIA Navigator</span>
-        <button id="emergency-btn">🚨 Emergency</button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>USIA Navigator</title>
+  <meta name="description"
+    content="USIA Campus AR Navigator – real-time GPS navigation with augmented reality for SAKEC campus." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+
+  <!-- Three.js for 3D model on profile page -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- AFRAME / AR -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- LANDING PAGE                        -->
+  <!-- ═══════════════════════════════════ -->
+  <div id="landing-page" class="page-overlay active">
+    <div class="landing-bg">
+      <div class="landing-orb orb1"></div>
+      <div class="landing-orb orb2"></div>
+      <div class="landing-orb orb3"></div>
+    </div>
+    <div class="landing-content">
+      <div class="landing-logo">
+        <div class="logo-ring">
+          <span class="logo-icon">🧭</span>
+        </div>
       </div>
+      <h1 class="landing-title">USIA Navigator</h1>
+      <p class="landing-subtitle">Campus AR Navigation System</p>
 
-      <!-- Destination selector -->
-      <div id="dest-panel">
-        <label>📍 Go To:</label>
-        <select id="place-select">
-          <option value="">-- Select Destination --</option>
-        </select>
+      <div class="landing-form">
+        <div class="form-group">
+          <label class="form-label" for="input-name">Your Name</label>
+          <input id="input-name" class="form-input" type="text" placeholder="Enter your name..." autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="input-age">Your Age</label>
+          <input id="input-age" class="form-input" type="number" placeholder="Enter your age..." min="1" max="120" />
+        </div>
+        <button id="start-btn" class="start-btn">
+          <span>Let's Navigate</span>
+          <span class="btn-arrow">→</span>
+        </button>
       </div>
+    </div>
+  </div>
 
-      <!-- iOS compass permission button -->
-      <button id="orient-btn">🧭 Enable Compass</button>
+  <!-- ═══════════════════════════════════ -->
+  <!-- AR SCENE                            -->
+  <!-- ═══════════════════════════════════ -->
+  <a-scene arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;" vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true;" embedded id="ar-scene" style="display:none;">
+    <a-camera gps-camera rotation-reader></a-camera>
+  </a-scene>
 
-      <!-- Direction arrow canvas (center of screen) -->
+  <!-- ═══════════════════════════════════ -->
+  <!-- MAIN APP                            -->
+  <!-- ═══════════════════════════════════ -->
+  <div class="app" id="main-app" style="display:none;">
+
+    <!-- TOP HEADER -->
+    <header class="top-header">
+      <button id="profile-btn" class="icon-btn profile-icon-btn" title="Profile">
+        <div class="profile-avatar" id="profile-avatar-main">👤</div>
+        <span class="profile-name-chip" id="header-name-chip">You</span>
+      </button>
+      <h1 class="app-title">USIA Navigator</h1>
+      <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+    </header>
+
+    <!-- DESTINATION CARD -->
+    <section class="card destination-card">
+      <label class="label" for="place-select">Where To</label>
+      <select id="place-select" class="dropdown">
+        <option value="">Select Destination</option>
+      </select>
+    </section>
+
+    <!-- COMPASS BUTTON -->
+    <button id="orient-btn" class="primary-btn">
+      🧭 Enable Compass
+    </button>
+
+    <!-- CENTER ARROW OVERLAY (floats above steps/emergency) -->
+    <div class="arrow-wrapper">
       <canvas id="arrow-canvas"></canvas>
-
-      <!-- Distance / ETA HUD -->
-      <div id="hud">
-        <div id="dist-label">Select a destination</div>
-        <div id="arrived-msg" class="hidden">✅ You have arrived!</div>
-      </div>
-
-      <!-- Turn-by-turn steps -->
-      <button id="show-steps-btn" class="hidden">🗺️ Steps</button>
-      <div id="steps-panel" class="hidden">
-        <button id="close-steps">✕</button>
-        <div id="steps-title">🗺️ Turn-by-Turn</div>
-        <div id="steps-list"></div>
-      </div>
-
-      <!-- Info popup -->
-      <div id="info-popup" class="hidden">
-        <button id="close-popup">✕</button>
-        <h2 id="popup-name"></h2>
-        <p id="popup-desc"></p>
-        <p id="popup-hours"></p>
-        <p id="popup-contact"></p>
-      </div>
-
-      <!-- GPS status bar -->
-      <div id="gps-status">📡 Getting your location...</div>
-
-      <!-- Emergency red flash border -->
-      <div id="emergency-overlay"></div>
     </div>
 
-    <script src="locations.js"></script>
-    <script src="navigation.js"></script>
-    <script src="app.js"></script>
-  </body>
+    <!-- DISTANCE HUD -->
+    <section class="card hud-card">
+      <div id="dist-label">Select a destination</div>
+      <div id="arrived-msg" class="hidden arrived">✅ You have arrived!</div>
+    </section>
+
+    <!-- ACTION BUTTONS -->
+    <div class="bottom-actions">
+      <button id="show-steps-btn" class="secondary-btn hidden">
+        🗺️ Steps
+      </button>
+      <button id="emergency-btn" class="danger-btn">
+        🚨 Emergency
+      </button>
+    </div>
+
+    <!-- STEPS PANEL -->
+    <div id="steps-panel" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span>Turn-by-Turn</span>
+        <button id="close-steps" class="sheet-close-btn">✕</button>
+      </div>
+      <div id="steps-list" class="sheet-content"></div>
+    </div>
+
+    <!-- INFO POPUP -->
+    <div id="info-popup" class="bottom-sheet hidden">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span id="popup-name"></span>
+        <button id="close-popup" class="sheet-close-btn">✕</button>
+      </div>
+      <div class="sheet-content">
+        <p id="popup-desc" class="popup-row"></p>
+        <p id="popup-hours" class="popup-row"></p>
+        <p id="popup-contact" class="popup-row"></p>
+      </div>
+    </div>
+
+    <!-- GPS STATUS -->
+    <div id="gps-status" class="gps-bar">
+      📡 Getting your location...
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- PROFILE PAGE                        -->
+  <!-- ═══════════════════════════════════ -->
+  <div id="profile-page" class="page-overlay hidden">
+    <div class="page-header">
+      <button class="back-btn" data-back="main">← Back</button>
+      <h2 class="page-title">Profile</h2>
+      <div style="width:60px"></div>
+    </div>
+    <div class="profile-content">
+      <!-- 3D Model Container -->
+      <div class="model-container" id="profile-3d-container">
+        <canvas id="profile-3d-canvas"></canvas>
+        <div class="model-label">Your 3D Avatar</div>
+      </div>
+
+      <div class="profile-info-card">
+        <div class="profile-big-avatar" id="profile-big-avatar">👤</div>
+        <h2 class="profile-user-name" id="profile-user-name">Navigator</h2>
+        <p class="profile-user-age" id="profile-user-age">Age: --</p>
+        <div class="profile-badge">USIA Campus Explorer</div>
+      </div>
+
+      <div class="profile-stats">
+        <div class="stat-card">
+          <span class="stat-value" id="stat-destinations">7</span>
+          <span class="stat-label">Destinations</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">AR</span>
+          <span class="stat-label">Navigation</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">GPS</span>
+          <span class="stat-label">Tracking</span>
+        </div>
+      </div>
+
+      <div class="profile-edit-section">
+        <h3 class="section-heading">Update Info</h3>
+        <div class="form-group">
+          <label class="form-label" for="edit-name">Name</label>
+          <input id="edit-name" class="form-input" type="text" placeholder="Your name..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-age">Age</label>
+          <input id="edit-age" class="form-input" type="number" placeholder="Your age..." min="1" max="120" />
+        </div>
+        <button id="save-profile-btn" class="save-btn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- SETTINGS PAGE                       -->
+  <!-- ═══════════════════════════════════ -->
+  <div id="settings-page" class="page-overlay hidden">
+    <div class="page-header">
+      <button class="back-btn" data-back="main">← Back</button>
+      <h2 class="page-title">Settings</h2>
+      <div style="width:60px"></div>
+    </div>
+    <div class="settings-content">
+
+      <div class="settings-group">
+        <h3 class="settings-group-title">Navigation</h3>
+        <div class="settings-item">
+          <div class="settings-item-info">
+            <span class="settings-item-title">High Accuracy GPS</span>
+            <span class="settings-item-desc">Uses more battery, best accuracy</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-hq-gps" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <div class="settings-item-info">
+            <span class="settings-item-title">Auto-Reroute</span>
+            <span class="settings-item-desc">Recalculate every 15 seconds</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-auto-reroute" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <div class="settings-item-info">
+            <span class="settings-item-title">Show AR Labels</span>
+            <span class="settings-item-desc">3D markers in camera view</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-ar-labels" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3 class="settings-group-title">Appearance</h3>
+        <div class="settings-item">
+          <div class="settings-item-info">
+            <span class="settings-item-title">Arrow Color</span>
+            <span class="settings-item-desc">Navigation arrow tint</span>
+          </div>
+          <select id="setting-arrow-color" class="settings-select">
+            <option value="#00FFAA">Teal (Default)</option>
+            <option value="#FF6B6B">Red</option>
+            <option value="#FFD700">Gold</option>
+            <option value="#7B68EE">Purple</option>
+          </select>
+        </div>
+        <div class="settings-item">
+          <div class="settings-item-info">
+            <span class="settings-item-title">Card Blur</span>
+            <span class="settings-item-desc">Glassmorphism blur strength</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-blur" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3 class="settings-group-title">About</h3>
+        <div class="settings-item about-item">
+          <span class="settings-item-title">USIA Navigator</span>
+          <span class="about-version">v2.0</span>
+        </div>
+        <div class="settings-item about-item">
+          <span class="settings-item-desc">Campus AR Navigation powered by A-Frame, AR.js & OSRM routing engine.</span>
+        </div>
+        <div class="settings-item about-item">
+          <span class="settings-item-desc">🏫 Built for SAKEC Campus</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- EMERGENCY OVERLAY PAGE              -->
+  <!-- ═══════════════════════════════════ -->
+  <div id="emergency-overlay" class="emergency-overlay hidden">
+    <div class="emergency-content">
+      <div class="emergency-pulse">🚨</div>
+      <h2 class="emergency-title">EMERGENCY</h2>
+      <p class="emergency-routing-to">Routing to nearest help...</p>
+      <div class="emergency-dest" id="emergency-dest-name">—</div>
+      <div class="emergency-contact" id="emergency-dest-contact">—</div>
+      <button id="emergency-dismiss-btn" class="emergency-dismiss-btn">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- JS Files -->
+  <script src="locations.js"></script>
+  <script src="navigation.js"></script>
+  <script src="app.js"></script>
+
+</body>
+
 </html>
