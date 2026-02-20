@@ -38,10 +38,19 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-dark);
+  background: transparent;
   font-family: var(--font);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+}
+
+/* AR scene fills screen behind all UI */
+#ar-scene {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 0 !important;
 }
 
 /* ══════════════════════════════════════════

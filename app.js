@@ -730,7 +730,7 @@ function showEmergencyOverlay(nearest) {
 
   overlay.classList.remove("hidden");
 
-  // Auto-dismiss after 5 seconds
+
   setTimeout(() => {
     overlay.classList.add("hidden");
   }, 5000);
