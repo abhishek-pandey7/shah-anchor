@@ -1,5 +1,3 @@
-// locations.js
-
 const PLACES = {
   college: {
     id: "college",
@@ -12,7 +10,6 @@ const PLACES = {
     contact: "Reception",
     isEmergency: false,
   },
-
   ground: {
     id: "ground",
     name: "SAKEC Ground",
@@ -24,7 +21,6 @@ const PLACES = {
     contact: "Sports Dept",
     isEmergency: false,
   },
-
   hospital: {
     id: "hospital",
     name: "Nearby Hospital",
@@ -36,7 +32,6 @@ const PLACES = {
     contact: "Emergency Desk",
     isEmergency: true,
   },
-
   dmart: {
     id: "dmart",
     name: "DMART Store",
@@ -48,7 +43,6 @@ const PLACES = {
     contact: "Customer Care",
     isEmergency: false,
   },
-
   police: {
     id: "police",
     name: "Police Station",
@@ -60,7 +54,6 @@ const PLACES = {
     contact: "Emergency: 100",
     isEmergency: true,
   },
-
   traffic: {
     id: "traffic",
     name: "Traffic Police Stop",
@@ -72,7 +65,6 @@ const PLACES = {
     contact: "Traffic Dept",
     isEmergency: true,
   },
-
   pharmacy: {
     id: "pharmacy",
     name: "Pharmacy Store",

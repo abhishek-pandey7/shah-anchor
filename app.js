@@ -1,79 +1,175 @@
 // ═══════════════════════════════════════════
 // app.js — USIA Campus AR Navigator
+// Stack: A-Frame + AR.js (3D labels) + Canvas (arrow) + OSRM (routing)
 // ═══════════════════════════════════════════
 
-// ── State ──
 const scene = document.querySelector("a-scene");
 let currentDest = null;
 let userPosition = null;
-let watchId = null;
 let navInterval = null;
+let currentBearing = null;
 
-// ── DOM refs ──
 const placeSelect = document.getElementById("place-select");
 const distLabel = document.getElementById("dist-label");
 const arrivedMsg = document.getElementById("arrived-msg");
 const gpsStatus = document.getElementById("gps-status");
 
 // ═══════════════════════════════════════════
-// PART 1 — GPS
+// 1. REAL GPS
 // ═══════════════════════════════════════════
 
-function startGPS() {
-  if (!navigator.geolocation) {
-    gpsStatus.textContent = "❌ GPS not supported on this device";
-    gpsStatus.style.color = "#FF2244";
-    useFallbackPosition();
-    return;
-  }
-
+if (!navigator.geolocation) {
+  gpsStatus.textContent = "❌ GPS not supported";
+  gpsStatus.style.color = "#FF2244";
+} else {
   gpsStatus.textContent = "📡 Getting your location...";
   gpsStatus.style.color = "#FFD700";
 
-  watchId = navigator.geolocation.watchPosition(
+  navigator.geolocation.watchPosition(
     (pos) => {
       userPosition = {
         lat: pos.coords.latitude,
         lon: pos.coords.longitude,
       };
-
       const acc = Math.round(pos.coords.accuracy);
-      gpsStatus.textContent = `📍 GPS locked · ±${acc}m`;
+      gpsStatus.textContent = `📍 ${userPosition.lat.toFixed(5)}, ${userPosition.lon.toFixed(5)}  ·  ±${acc}m`;
       gpsStatus.style.color =
         acc < 20 ? "#00FFAA" : acc < 50 ? "#FFD700" : "#FF8800";
 
-      // Trigger nav update on every new GPS fix
       if (currentDest) updateNav();
     },
     (err) => {
-      const reasons = {
-        1: "❌ Location denied — please allow location access",
+      const msg = {
+        1: "❌ Location permission denied",
         2: "❌ GPS signal unavailable",
         3: "❌ GPS timed out",
       };
-      gpsStatus.textContent =
-        (reasons[err.code] || "❌ GPS error") + " · using sim position";
+      gpsStatus.textContent = msg[err.code] || "❌ GPS error";
       gpsStatus.style.color = "#FF2244";
-      useFallbackPosition();
     },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 10000,
-    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
   );
 }
 
-function useFallbackPosition() {
-  // Fall back to first place so app still works without GPS
-  if (!userPosition) {
-    userPosition = { lat: PLACES["academic"].lat, lon: PLACES["academic"].lon };
-    gpsStatus.textContent += " (simulated)";
+// ═══════════════════════════════════════════
+// 2. COMPASS (phone orientation)
+// ═══════════════════════════════════════════
+
+let deviceHeading = 0;
+
+window.addEventListener(
+  "deviceorientationabsolute",
+  (e) => {
+    if (e.alpha !== null) deviceHeading = e.alpha;
+  },
+  true,
+);
+
+window.addEventListener("deviceorientation", (e) => {
+  if (e.webkitCompassHeading !== undefined) {
+    deviceHeading = e.webkitCompassHeading; // iOS
+  } else if (e.alpha !== null) {
+    deviceHeading = 360 - e.alpha; // Android
   }
-}
+});
+
+// iOS 13+ needs explicit permission
+document.getElementById("orient-btn").addEventListener("click", () => {
+  if (typeof DeviceOrientationEvent?.requestPermission === "function") {
+    DeviceOrientationEvent.requestPermission().then((state) => {
+      if (state === "granted") {
+        document.getElementById("orient-btn").style.display = "none";
+      }
+    });
+  } else {
+    // Android — no permission needed, just hide button
+    document.getElementById("orient-btn").style.display = "none";
+  }
+});
 
 // ═══════════════════════════════════════════
-// PART 2 — AR Entities
+// 3. CANVAS ARROW
+// ═══════════════════════════════════════════
+
+const arrowCanvas = document.getElementById("arrow-canvas");
+const arrowCtx = arrowCanvas.getContext("2d");
+arrowCanvas.width = 160;
+arrowCanvas.height = 160;
+
+function drawArrow(bearingToTarget) {
+  arrowCtx.clearRect(0, 0, 160, 160);
+
+  // Adjust for where phone is facing
+  const adjusted = (bearingToTarget - deviceHeading + 360) % 360;
+  const angle = (adjusted * Math.PI) / 180;
+
+  arrowCtx.save();
+  arrowCtx.translate(80, 80);
+  arrowCtx.rotate(angle);
+
+  // Outer glow ring
+  arrowCtx.beginPath();
+  arrowCtx.arc(0, 0, 70, 0, Math.PI * 2);
+  arrowCtx.strokeStyle = "rgba(0,255,170,0.12)";
+  arrowCtx.lineWidth = 14;
+  arrowCtx.stroke();
+
+  // Inner ring
+  arrowCtx.beginPath();
+  arrowCtx.arc(0, 0, 56, 0, Math.PI * 2);
+  arrowCtx.strokeStyle = "rgba(0,255,170,0.3)";
+  arrowCtx.lineWidth = 2;
+  arrowCtx.stroke();
+
+  // Arrow shaft
+  arrowCtx.beginPath();
+  arrowCtx.moveTo(0, 40);
+  arrowCtx.lineTo(0, -30);
+  arrowCtx.strokeStyle = "#00FFAA";
+  arrowCtx.lineWidth = 7;
+  arrowCtx.lineCap = "round";
+  arrowCtx.shadowColor = "#00FFAA";
+  arrowCtx.shadowBlur = 20;
+  arrowCtx.stroke();
+
+  // Arrow head
+  arrowCtx.beginPath();
+  arrowCtx.moveTo(0, -55);
+  arrowCtx.lineTo(-18, -28);
+  arrowCtx.lineTo(18, -28);
+  arrowCtx.closePath();
+  arrowCtx.fillStyle = "#00FFAA";
+  arrowCtx.shadowColor = "#00FFAA";
+  arrowCtx.shadowBlur = 24;
+  arrowCtx.fill();
+
+  // Center dot
+  arrowCtx.beginPath();
+  arrowCtx.arc(0, 0, 6, 0, Math.PI * 2);
+  arrowCtx.fillStyle = "#ffffff";
+  arrowCtx.shadowBlur = 0;
+  arrowCtx.fill();
+
+  arrowCtx.restore();
+}
+
+function clearArrow() {
+  arrowCtx.clearRect(0, 0, 160, 160);
+}
+
+// Redraw arrow every frame (so it rotates smoothly as phone turns)
+function arrowLoop() {
+  if (currentBearing !== null && currentDest && userPosition) {
+    drawArrow(currentBearing);
+  } else {
+    clearArrow();
+  }
+  requestAnimationFrame(arrowLoop);
+}
+arrowLoop();
+
+// ═══════════════════════════════════════════
+// 4. AR ENTITIES (A-Frame + AR.js 3D labels)
 // ═══════════════════════════════════════════
 
 function createPlaceEntity(place) {
@@ -84,7 +180,7 @@ function createPlaceEntity(place) {
     `latitude: ${place.lat}; longitude: ${place.lon}`,
   );
 
-  // Background plane
+  // Dark card background
   const plane = document.createElement("a-plane");
   plane.setAttribute("color", "#000000");
   plane.setAttribute("opacity", "0.65");
@@ -93,7 +189,7 @@ function createPlaceEntity(place) {
   plane.setAttribute("position", "0 2 0");
   plane.setAttribute("look-at", "[gps-camera]");
 
-  // Label text
+  // Place name text
   const text = document.createElement("a-text");
   text.setAttribute("id", "text-" + place.id);
   text.setAttribute("value", place.icon + "  " + place.name);
@@ -103,7 +199,7 @@ function createPlaceEntity(place) {
   text.setAttribute("position", "0 2 0.1");
   text.setAttribute("look-at", "[gps-camera]");
 
-  // Bouncing arrow cone above label
+  // Bouncing cone
   const cone = document.createElement("a-cone");
   cone.setAttribute("id", "cone-" + place.id);
   cone.setAttribute("color", "#00FFAA");
@@ -114,28 +210,23 @@ function createPlaceEntity(place) {
   cone.setAttribute("rotation", "180 0 0");
   cone.setAttribute(
     "animation",
-    "property: position; from: 0 4 0; to: 0 5 0; dur: 800; dir: alternate; loop: true; easing: easeInOutSine",
+    "property: position; from: 0 4 0; to: 0 5 0; " +
+      "dur: 800; dir: alternate; loop: true; easing: easeInOutSine",
   );
 
   entity.appendChild(plane);
   entity.appendChild(text);
   entity.appendChild(cone);
-
-  // Tap entity → show popup
   entity.addEventListener("click", () => showPopup(place));
-
   scene.appendChild(entity);
 }
 
-// Spawn all entities once scene is ready
 scene.addEventListener("loaded", () => {
-  for (const key in PLACES) {
-    createPlaceEntity(PLACES[key]);
-  }
+  for (const key in PLACES) createPlaceEntity(PLACES[key]);
 });
 
 // ═══════════════════════════════════════════
-// PART 3 — Populate Destination Dropdown
+// 5. DESTINATION DROPDOWN
 // ═══════════════════════════════════════════
 
 for (const key in PLACES) {
@@ -150,45 +241,36 @@ placeSelect.addEventListener("change", () => {
   const key = placeSelect.value;
   if (!key) {
     currentDest = null;
+    currentBearing = null;
     distLabel.textContent = "Select a destination";
     arrivedMsg.classList.add("hidden");
     resetHighlights();
     clearSteps();
-    stopNavInterval();
+    if (navInterval) {
+      clearInterval(navInterval);
+      navInterval = null;
+    }
     return;
   }
   currentDest = PLACES[key];
   showPopup(currentDest);
   updateNav();
-  startNavInterval();
+  if (navInterval) clearInterval(navInterval);
+  navInterval = setInterval(updateNav, 15000);
 });
 
 // ═══════════════════════════════════════════
-// PART 4 — Navigation + OSRM Road Routing
+// 6. UPDATE NAV — GPS → OSRM → Arrow + HUD
 // ═══════════════════════════════════════════
-
-function startNavInterval() {
-  stopNavInterval();
-  navInterval = setInterval(updateNav, 10000); // re-route every 10s
-}
-
-function stopNavInterval() {
-  if (navInterval) {
-    clearInterval(navInterval);
-    navInterval = null;
-  }
-}
 
 async function updateNav() {
   if (!currentDest) return;
-
-  // Wait for GPS fix
   if (!userPosition) {
     distLabel.textContent = "📡 Waiting for GPS fix...";
     return;
   }
 
-  distLabel.textContent = "⏳ Calculating road route...";
+  distLabel.textContent = "⏳ Calculating route...";
 
   const route = await getRoadRoute(
     userPosition.lat,
@@ -200,44 +282,69 @@ async function updateNav() {
   highlightEntity(currentDest.id);
 
   if (hasArrived(route.distance)) {
-    distLabel.textContent = "📍 You have arrived at " + currentDest.name;
+    currentBearing = null;
+    distLabel.textContent = "✅ Arrived at " + currentDest.name;
     arrivedMsg.classList.remove("hidden");
-    stopNavInterval(); // stop polling once arrived
     clearSteps();
-  } else {
-    const distText =
-      route.distance < 1000
-        ? Math.round(route.distance) + " m"
-        : (route.distance / 1000).toFixed(1) + " km";
-    const eta = formatDuration(route.duration);
-    const mode = route.isFallback ? "(direct)" : "(road)";
-
-    distLabel.textContent =
-      getCardinal(route.bearing) +
-      "  ·  " +
-      distText +
-      " " +
-      mode +
-      (eta ? "  ·  🕐 " + eta : "") +
-      "  →  " +
-      currentDest.name;
-
-    arrivedMsg.classList.add("hidden");
-    showSteps(route.steps);
+    if (navInterval) {
+      clearInterval(navInterval);
+      navInterval = null;
+    }
+    return;
   }
+
+  arrivedMsg.classList.add("hidden");
+
+  // ── Set arrow bearing from OSRM next waypoint ──
+  if (!route.isFallback && route.coords && route.coords.length > 1) {
+    const [lon1, lat1] = route.coords[0];
+    const [lon2, lat2] = route.coords[1];
+    currentBearing = getBearing(lat1, lon1, lat2, lon2); // next road point
+  } else {
+    currentBearing = getBearing(
+      // straight line fallback
+      userPosition.lat,
+      userPosition.lon,
+      currentDest.lat,
+      currentDest.lon,
+    );
+  }
+
+  // ── HUD text ──
+  const distText =
+    route.distance < 1000
+      ? Math.round(route.distance) + " m"
+      : (route.distance / 1000).toFixed(2) + " km";
+  const eta = formatDuration(route.duration);
+  const mode = route.isFallback ? "📏 direct" : "🛣️ road";
+
+  distLabel.textContent =
+    getCardinal(currentBearing) +
+    "  ·  " +
+    distText +
+    " (" +
+    mode +
+    ")" +
+    (eta ? "  ·  🚶 " + eta : "") +
+    "  →  " +
+    currentDest.name;
+
+  showSteps(route.steps);
 }
 
 // ═══════════════════════════════════════════
-// PART 5 — AR Highlight
+// 7. HIGHLIGHT AR ENTITY
 // ═══════════════════════════════════════════
 
 function highlightEntity(selectedId) {
   for (const key in PLACES) {
-    const cone = document.getElementById("cone-" + key);
-    const text = document.getElementById("text-" + key);
     const isSelected = key === selectedId;
-    cone && cone.setAttribute("color", isSelected ? "#FFD700" : "#00FFAA");
-    text && text.setAttribute("color", isSelected ? "#FFD700" : "#00FFAA");
+    document
+      .getElementById("cone-" + key)
+      ?.setAttribute("color", isSelected ? "#FFD700" : "#00FFAA");
+    document
+      .getElementById("text-" + key)
+      ?.setAttribute("color", isSelected ? "#FFD700" : "#00FFAA");
   }
 }
 
@@ -249,19 +356,18 @@ function resetHighlights() {
 }
 
 // ═══════════════════════════════════════════
-// PART 6 — Turn-by-Turn Steps UI
+// 8. TURN-BY-TURN STEPS
 // ═══════════════════════════════════════════
 
 function showSteps(steps) {
   const list = document.getElementById("steps-list");
   const btn = document.getElementById("show-steps-btn");
-  if (!list || !btn) return;
-
+  if (!list || !steps.length) return;
   list.innerHTML = "";
   steps.forEach((s, i) => {
     const div = document.createElement("div");
     div.className = "step-item";
-    div.textContent = i + 1 + ". " + s.instruction + "  (" + s.distance + ")";
+    div.textContent = i + 1 + ". " + s.instruction + " (" + s.distance + ")";
     list.appendChild(div);
   });
   btn.classList.remove("hidden");
@@ -269,22 +375,21 @@ function showSteps(steps) {
 
 function clearSteps() {
   const list = document.getElementById("steps-list");
-  const btn = document.getElementById("show-steps-btn");
   if (list) list.innerHTML = "";
-  if (btn) btn.classList.add("hidden");
+  document.getElementById("show-steps-btn")?.classList.add("hidden");
   document.getElementById("steps-panel")?.classList.add("hidden");
 }
 
-document.getElementById("show-steps-btn")?.addEventListener("click", () => {
-  document.getElementById("steps-panel")?.classList.toggle("hidden");
+document.getElementById("show-steps-btn").addEventListener("click", () => {
+  document.getElementById("steps-panel").classList.toggle("hidden");
 });
 
-document.getElementById("close-steps")?.addEventListener("click", () => {
-  document.getElementById("steps-panel")?.classList.add("hidden");
+document.getElementById("close-steps").addEventListener("click", () => {
+  document.getElementById("steps-panel").classList.add("hidden");
 });
 
 // ═══════════════════════════════════════════
-// PART 7 — Info Popup
+// 9. INFO POPUP
 // ═══════════════════════════════════════════
 
 function showPopup(place) {
@@ -301,27 +406,25 @@ document.getElementById("close-popup").addEventListener("click", () => {
 });
 
 // ═══════════════════════════════════════════
-// PART 8 — Emergency Button
+// 10. EMERGENCY BUTTON
 // ═══════════════════════════════════════════
 
 document.getElementById("emergency-btn").addEventListener("click", () => {
   if (!userPosition) {
-    alert("📡 GPS not ready yet. Please wait for location fix.");
+    alert("📡 GPS not ready. Step outside and wait.");
     return;
   }
-
   const nearest = getNearestEmergency(userPosition.lat, userPosition.lon);
   if (!nearest) return;
 
-  // Auto-select destination
   placeSelect.value = nearest.id;
   currentDest = nearest;
-
   showPopup(nearest);
   updateNav();
-  startNavInterval();
 
-  // Red flash border
+  if (navInterval) clearInterval(navInterval);
+  navInterval = setInterval(updateNav, 15000);
+
   const overlay = document.getElementById("emergency-overlay");
   overlay.style.display = "block";
   setTimeout(() => {
@@ -329,15 +432,9 @@ document.getElementById("emergency-btn").addEventListener("click", () => {
   }, 4000);
 
   alert(
-    "🚨 EMERGENCY\nNavigating to: " +
+    "🚨 EMERGENCY\nRouting to: " +
       nearest.name +
       "\nContact: " +
       nearest.contact,
   );
 });
-
-// ═══════════════════════════════════════════
-// INIT — Start GPS on page load
-// ═══════════════════════════════════════════
-
-startGPS();

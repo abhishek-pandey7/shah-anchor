@@ -2,43 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
     <title>USIA Campus AR</title>
-
-    <!-- STEP 2A: Load A-Frame -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
-
-    <!-- STEP 2B: Load AR.js (location-based version) -->
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-
-    <!-- STEP 2C: Load AR.js location component -->
-    <script src="https://raw.githack.com/nicholasgasior/aframe-look-at/master/dist/aframe-look-at-component.min.js"></script>
-
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- ═══════════════════════════════════════════
-       AR SCENE — camera opens automatically here
-       arjs: uses GPS location
-       vr-mode-ui: disabled (not VR, it's AR)
-       renderer: logs removed for clean mobile view
-  ════════════════════════════════════════════ -->
+    <!-- A-Frame AR Scene (camera + 3D GPS labels) -->
     <a-scene
       arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
       vr-mode-ui="enabled: false"
       renderer="logarithmicDepthBuffer: true; precision: medium;"
       embedded
     >
-      <!-- STEP 2D: Camera entity — AR.js controls this -->
       <a-camera gps-camera rotation-reader></a-camera>
-
-      <!-- STEP 2E: AR place entities will be injected here by app.js -->
-      <!-- Each place = one <a-entity> with gps-entity-place component -->
     </a-scene>
 
-    <!-- ═══════════════════════════════════════════
-       UI LAYER — sits on top of AR scene
-  ════════════════════════════════════════════ -->
+    <!-- UI Layer -->
     <div id="ui">
       <!-- Top bar -->
       <div id="top-bar">
@@ -54,13 +38,24 @@
         </select>
       </div>
 
-      <!-- Simulate user location (since GPS may not match campus) -->
-      <div id="gps-status">📡 Getting your location...</div>
+      <!-- iOS compass permission button -->
+      <button id="orient-btn">🧭 Enable Compass</button>
 
-      <!-- Distance HUD -->
+      <!-- Direction arrow canvas (center of screen) -->
+      <canvas id="arrow-canvas"></canvas>
+
+      <!-- Distance / ETA HUD -->
       <div id="hud">
         <div id="dist-label">Select a destination</div>
         <div id="arrived-msg" class="hidden">✅ You have arrived!</div>
+      </div>
+
+      <!-- Turn-by-turn steps -->
+      <button id="show-steps-btn" class="hidden">🗺️ Steps</button>
+      <div id="steps-panel" class="hidden">
+        <button id="close-steps">✕</button>
+        <div id="steps-title">🗺️ Turn-by-Turn</div>
+        <div id="steps-list"></div>
       </div>
 
       <!-- Info popup -->
@@ -72,11 +67,13 @@
         <p id="popup-contact"></p>
       </div>
 
+      <!-- GPS status bar -->
+      <div id="gps-status">📡 Getting your location...</div>
+
       <!-- Emergency red flash border -->
       <div id="emergency-overlay"></div>
     </div>
 
-    <!-- Scripts in correct order -->
     <script src="locations.js"></script>
     <script src="navigation.js"></script>
     <script src="app.js"></script>
