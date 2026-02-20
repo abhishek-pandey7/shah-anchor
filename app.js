@@ -50,9 +50,29 @@ document.getElementById("start-btn").addEventListener("click", () => {
   mainApp.style.display = "flex";
   arScene.style.display = "block";
 
+  // Start rear camera as fullscreen background
+  startCamera();
+
   // Init GPS after user gesture (important for mobile)
   initGPS();
 });
+
+// ── Camera feed ──
+async function startCamera() {
+  const video = document.getElementById("camera-feed");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    video.style.display = "block";
+  } catch (err) {
+    console.warn("[Camera] Could not start camera:", err.message);
+    // App still works without camera (dark background fallback)
+  }
+}
+
 
 // Try to load saved profile
 const savedProfile = localStorage.getItem("usia_profile");
@@ -326,8 +346,20 @@ function init3DModel() {
 // SETTINGS
 // ═══════════════════════════════════════════
 
+// sync callback: called by ar-arrow-3d.js during auto color-cycle
+window._arrowColorSync = function (threeColor) {
+  arrowColor = '#' + threeColor.getHexString();
+};
+
 document.getElementById("setting-arrow-color").addEventListener("change", (e) => {
-  arrowColor = e.target.value;
+  const val = e.target.value;
+  if (val === "auto") {
+    // Resume rainbow cycle (pass null to 3D arrow)
+    if (typeof window.setArrowColor === 'function') window.setArrowColor(null);
+  } else {
+    arrowColor = val;
+    if (typeof window.setArrowColor === 'function') window.setArrowColor(val);
+  }
 });
 
 // ═══════════════════════════════════════════
@@ -392,15 +424,113 @@ window.addEventListener("deviceorientation", (e) => {
   }
 });
 
+// ── Compass widget draw ──────────────────────────────────────────────────
+const compassCanvas = document.getElementById("compass-canvas");
+const compassCtx = compassCanvas ? compassCanvas.getContext("2d") : null;
+let compassEnabled = false;
+
+function drawCompass(heading) {
+  if (!compassCtx) return;
+  const W = 72, H = 72, cx = W / 2, cy = H / 2, R = 32;
+  compassCtx.clearRect(0, 0, W, H);
+
+  // Outer ring
+  compassCtx.beginPath();
+  compassCtx.arc(cx, cy, R, 0, Math.PI * 2);
+  compassCtx.strokeStyle = "rgba(0,255,170,0.35)";
+  compassCtx.lineWidth = 2;
+  compassCtx.stroke();
+
+  // Dark fill
+  compassCtx.beginPath();
+  compassCtx.arc(cx, cy, R - 1, 0, Math.PI * 2);
+  compassCtx.fillStyle = "rgba(8,8,20,0.82)";
+  compassCtx.fill();
+
+  // Tick marks (N/E/S/W)
+  ["N", "E", "S", "W"].forEach((dir, i) => {
+    const angle = (i * 90 - heading) * Math.PI / 180;
+    const isN = dir === "N";
+    const tx = cx + Math.sin(angle) * (R - 8);
+    const ty = cy - Math.cos(angle) * (R - 8);
+    compassCtx.font = `bold ${isN ? 11 : 9}px Inter,sans-serif`;
+    compassCtx.fillStyle = isN ? "#FF4757" : "rgba(255,255,255,0.7)";
+    compassCtx.textAlign = "center";
+    compassCtx.textBaseline = "middle";
+    compassCtx.fillText(dir, tx, ty);
+  });
+
+  // Needle — red north, white south
+  const needleAngle = -heading * Math.PI / 180;
+  compassCtx.save();
+  compassCtx.translate(cx, cy);
+  compassCtx.rotate(needleAngle);
+  // North (red)
+  compassCtx.beginPath();
+  compassCtx.moveTo(0, 0);
+  compassCtx.lineTo(0, -(R - 14));
+  compassCtx.strokeStyle = "#FF4757";
+  compassCtx.lineWidth = 3;
+  compassCtx.lineCap = "round";
+  compassCtx.shadowColor = "#FF4757";
+  compassCtx.shadowBlur = 6;
+  compassCtx.stroke();
+  // South (white)
+  compassCtx.beginPath();
+  compassCtx.moveTo(0, 0);
+  compassCtx.lineTo(0, R - 14);
+  compassCtx.strokeStyle = "rgba(255,255,255,0.5)";
+  compassCtx.lineWidth = 3;
+  compassCtx.shadowBlur = 0;
+  compassCtx.stroke();
+  compassCtx.restore();
+
+  // Center dot
+  compassCtx.beginPath();
+  compassCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+  compassCtx.fillStyle = "#ffffff";
+  compassCtx.fill();
+
+  // Degree label
+  const degEl = document.getElementById("compass-deg");
+  if (degEl) degEl.textContent = Math.round(heading) + "°";
+}
+
+function compassLoop() {
+  if (!compassEnabled) return;
+  drawCompass(deviceHeading);
+  requestAnimationFrame(compassLoop);
+}
+
+function enableCompass() {
+  compassEnabled = true;
+  const widget = document.getElementById("compass-widget");
+  if (widget) widget.classList.remove("hidden");
+  const btn = document.getElementById("orient-btn");
+  if (btn) {
+    btn.title = "Compass ON";
+    btn.style.background = "rgba(0,255,170,0.2)";
+    btn.style.border = "1px solid rgba(0,255,170,0.5)";
+  }
+  compassLoop();
+}
+
 document.getElementById("orient-btn").addEventListener("click", () => {
+  if (compassEnabled) {
+    // Toggle off
+    compassEnabled = false;
+    const widget = document.getElementById("compass-widget");
+    if (widget) widget.classList.add("hidden");
+    const btn = document.getElementById("orient-btn");
+    if (btn) { btn.style.background = ""; btn.style.border = ""; btn.title = "Enable Compass"; }
+    return;
+  }
   if (typeof DeviceOrientationEvent?.requestPermission === "function") {
     DeviceOrientationEvent.requestPermission().then((state) => {
-      if (state === "granted") {
-        document.getElementById("orient-btn").style.display = "none";
-      }
+      if (state === "granted") enableCompass();
     });
   } else {
-    document.getElementById("orient-btn").style.display = "none";
+    enableCompass();
   }
 });
 
@@ -551,6 +681,61 @@ for (const key in PLACES) {
   placeSelect.appendChild(opt);
 }
 
+// ── Mini destination bar helpers ──────────────────────────────────────────
+const destCard = document.getElementById("dest-card");
+const miniBar = document.getElementById("mini-dest-bar");
+const searchOverlay = document.getElementById("dest-search-overlay");
+const searchInput = document.getElementById("dest-search-input");
+const searchResults = document.getElementById("dest-search-results");
+
+function showMiniBar() {
+  destCard.style.display = "none";
+  miniBar.classList.remove("hidden");
+}
+
+function showFullCard() {
+  miniBar.classList.add("hidden");
+  destCard.style.display = "";
+}
+
+function openSearchOverlay() {
+  searchOverlay.classList.remove("hidden");
+  searchInput.value = "";
+  renderSearchResults("");
+  setTimeout(() => searchInput.focus(), 80);
+}
+
+function closeSearchOverlay() {
+  searchOverlay.classList.add("hidden");
+}
+
+function renderSearchResults(query) {
+  searchResults.innerHTML = "";
+  const q = query.toLowerCase().trim();
+  Object.values(PLACES).forEach(p => {
+    if (q && !p.name.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) return;
+    const item = document.createElement("div");
+    item.className = "dest-result-item";
+    item.innerHTML = `
+      <span class="dest-result-icon">${p.icon || "📍"}</span>
+      <div>
+        <div class="dest-result-name">${p.name}</div>
+        <div class="dest-result-desc">${p.description}</div>
+      </div>`;
+    item.addEventListener("click", () => {
+      // Select this destination
+      placeSelect.value = p.id;
+      placeSelect.dispatchEvent(new Event("change"));
+      closeSearchOverlay();
+    });
+    searchResults.appendChild(item);
+  });
+}
+
+searchInput.addEventListener("input", () => renderSearchResults(searchInput.value));
+miniBar.addEventListener("click", openSearchOverlay);
+document.getElementById("dest-search-close").addEventListener("click", closeSearchOverlay);
+
 placeSelect.addEventListener("change", () => {
   const key = placeSelect.value;
   if (!key) {
@@ -560,15 +745,18 @@ placeSelect.addEventListener("change", () => {
     arrivedMsg.classList.add("hidden");
     resetHighlights();
     clearSteps();
+    showFullCard();
     if (navInterval) { clearInterval(navInterval); navInterval = null; }
     return;
   }
   currentDest = PLACES[key];
+  showMiniBar();
   showPopup(currentDest);
   updateNav();
   if (navInterval) clearInterval(navInterval);
   navInterval = setInterval(updateNav, 15000);
 });
+
 
 // ═══════════════════════════════════════════
 // UPDATE NAV
@@ -612,14 +800,10 @@ async function updateNav() {
   const distText = route.distance < 1000
     ? Math.round(route.distance) + " m"
     : (route.distance / 1000).toFixed(2) + " km";
-  const eta = formatDuration(route.duration);
-  const mode = route.isFallback ? "📏 direct" : "🛣️ road";
 
   distLabel.textContent =
     getCardinal(currentBearing) + "  ·  " +
-    distText + " (" + mode + ")" +
-    (eta ? "  ·  🚶 " + eta : "") +
-    "  →  " + currentDest.name;
+    distText + "  →  " + currentDest.name;
 
   showSteps(route.steps);
 }

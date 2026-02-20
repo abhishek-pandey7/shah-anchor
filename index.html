@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>USIA Navigator</title>
+  <title>CampusNav</title>
   <meta name="description"
     content="USIA Campus AR Navigator – real-time GPS navigation with augmented reality for SAKEC campus." />
 
@@ -27,6 +27,11 @@
 <body>
 
   <!-- ═══════════════════════════════════ -->
+  <!-- CAMERA BACKGROUND VIDEO            -->
+  <!-- ═══════════════════════════════════ -->
+  <video id="camera-feed" autoplay playsinline muted></video>
+
+  <!-- ═══════════════════════════════════ -->
   <!-- LANDING PAGE                        -->
   <!-- ═══════════════════════════════════ -->
   <div id="landing-page" class="page-overlay active">
@@ -41,7 +46,7 @@
           <span class="logo-icon">🧭</span>
         </div>
       </div>
-      <h1 class="landing-title">USIA Navigator</h1>
+      <h1 class="landing-title">CampusNav</h1>
       <p class="landing-subtitle">Campus AR Navigation System</p>
 
       <div class="landing-form">
@@ -80,22 +85,41 @@
         <div class="profile-avatar" id="profile-avatar-main">👤</div>
         <span class="profile-name-chip" id="header-name-chip">You</span>
       </button>
-      <h1 class="app-title">USIA Navigator</h1>
-      <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+      <h1 class="app-title">CampusNav</h1>
+      <div class="header-actions">
+        <button id="orient-btn" class="icon-btn" title="Enable Compass">🧭</button>
+        <button id="emergency-btn" class="icon-btn header-emergency-btn" title="Emergency">🚨</button>
+        <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+      </div>
     </header>
 
-    <!-- DESTINATION CARD -->
-    <section class="card destination-card">
+    <!-- COMPASS WIDGET (shown after compass enabled) -->
+    <div id="compass-widget" class="compass-widget hidden">
+      <canvas id="compass-canvas" width="72" height="72"></canvas>
+      <span id="compass-deg">0°</span>
+    </div>
+
+    <!-- DESTINATION CARD (shown before selection) -->
+    <section class="card destination-card" id="dest-card">
       <label class="label" for="place-select">Where To</label>
       <select id="place-select" class="dropdown">
         <option value="">Select Destination</option>
       </select>
     </section>
 
-    <!-- COMPASS BUTTON -->
-    <button id="orient-btn" class="primary-btn">
-      🧭 Enable Compass
-    </button>
+    <!-- FLOATING SEARCH BUTTON (shown after destination selected) -->
+    <button id="mini-dest-bar" class="mini-dest-bar hidden" title="Change destination">🔍</button>
+
+    <!-- SEARCH OVERLAY (shown when search btn tapped) -->
+    <div id="dest-search-overlay" class="dest-search-overlay hidden">
+      <div class="dest-search-box">
+        <input id="dest-search-input" class="dest-search-input" type="text" placeholder="Search destination..."
+          autocomplete="off" />
+        <button id="dest-search-close" class="dest-search-close">✕</button>
+      </div>
+      <div id="dest-search-results" class="dest-search-results"></div>
+    </div>
+
 
     <!-- CENTER ARROW OVERLAY (floats above steps/emergency) -->
     <div class="arrow-wrapper">
@@ -112,9 +136,6 @@
     <div class="bottom-actions">
       <button id="show-steps-btn" class="secondary-btn hidden">
         🗺️ Steps
-      </button>
-      <button id="emergency-btn" class="danger-btn">
-        🚨 Emergency
       </button>
     </div>
 
@@ -169,7 +190,7 @@
         <div class="profile-big-avatar" id="profile-big-avatar">👤</div>
         <h2 class="profile-user-name" id="profile-user-name">Navigator</h2>
         <p class="profile-user-age" id="profile-user-age">Age: --</p>
-        <div class="profile-badge">USIA Campus Explorer</div>
+        <div class="profile-badge">Campus Explorer</div>
       </div>
 
       <div class="profile-stats">
@@ -255,10 +276,13 @@
             <span class="settings-item-desc">Navigation arrow tint</span>
           </div>
           <select id="setting-arrow-color" class="settings-select">
+            <option value="auto">🌈 Rainbow (Auto)</option>
             <option value="#00FFAA">Teal (Default)</option>
             <option value="#FF6B6B">Red</option>
             <option value="#FFD700">Gold</option>
             <option value="#7B68EE">Purple</option>
+            <option value="#00BFFF">Sky Blue</option>
+            <option value="#FF69B4">Pink</option>
           </select>
         </div>
         <div class="settings-item">
@@ -276,7 +300,7 @@
       <div class="settings-group">
         <h3 class="settings-group-title">About</h3>
         <div class="settings-item about-item">
-          <span class="settings-item-title">USIA Navigator</span>
+          <span class="settings-item-title">CampusNav</span>
           <span class="about-version">v2.0</span>
         </div>
         <div class="settings-item about-item">
@@ -307,6 +331,9 @@
   <!-- JS Files -->
   <script src="locations.js"></script>
   <script src="navigation.js"></script>
+  <!-- Arrow: swap comments below to toggle 2D ↔ 3D -->
+  <!-- <script src="ar-arrow-3d.js"></script> -->
+  <script src="ar-arrow-2d.js"></script>
   <script src="app.js"></script>
 
 </body>

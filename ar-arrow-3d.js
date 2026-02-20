@@ -51,11 +51,12 @@
     camera3D.updateProjectionMatrix();
   });
 
-  // ── Material: glowing teal hologram ─────────────────────────────────────
-  const glowColor = new THREE.Color(0x00ffaa);
+  // ── Material: glowing hologram (color-swappable) ────────────────────────
+  let activeColor = new THREE.Color(0x00ffaa);
+
   const glowMat = new THREE.MeshStandardMaterial({
-    color: glowColor,
-    emissive: glowColor,
+    color: activeColor.clone(),
+    emissive: activeColor.clone(),
     emissiveIntensity: 1.2,
     transparent: true,
     opacity: 0.92,
@@ -63,8 +64,8 @@
     metalness: 0.6,
   });
   const rimMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0x00ffcc),
-    emissive: new THREE.Color(0x00ffcc),
+    color: activeColor.clone(),
+    emissive: activeColor.clone(),
     emissiveIntensity: 0.6,
     transparent: true,
     opacity: 0.35,
@@ -108,8 +109,8 @@
   // Outer pulse ring
   const pulseRingGeo = new THREE.TorusGeometry(0.7, 0.025, 8, 48);
   const pulseRingMat = new THREE.MeshStandardMaterial({
-    color: glowColor,
-    emissive: glowColor,
+    color: activeColor.clone(),
+    emissive: activeColor.clone(),
     emissiveIntensity: 0.5,
     transparent: true,
     opacity: 0.4,
@@ -134,7 +135,7 @@
 
   // ── Floating scan-line plane (hologram effect) ───────────────────────────
   const scanLineMat = new THREE.MeshBasicMaterial({
-    color: 0x00ffaa,
+    color: activeColor.clone(),
     transparent: true,
     opacity: 0.12,
     side: THREE.DoubleSide,
@@ -147,7 +148,7 @@
   // ── Shadow / ground projection disc ─────────────────────────────────────
   const shadowGeo = new THREE.CircleGeometry(0.5, 32);
   const shadowMat = new THREE.MeshBasicMaterial({
-    color: 0x00ffaa,
+    color: activeColor.clone(),
     transparent: true,
     opacity: 0.08,
     side: THREE.DoubleSide,
@@ -158,9 +159,30 @@
   arrowGroup.add(shadowDisc);
 
   // ── State exposed globally ───────────────────────────────────────────────
-  // app.js writes to window._arArrowBearing and window._arArrowVisible
   window._arArrowBearing = null;
   window._arArrowVisible = false;
+
+  // ── Color update function (callable from app.js settings) ────────────────
+  // Pass a CSS hex string e.g. "#FF6B6B" or null to resume auto-cycle
+  let manualColor = null;
+
+  window.setArrowColor = function (hex) {
+    manualColor = hex || null;
+    if (hex) applyColor(new THREE.Color(hex));
+  };
+
+  function applyColor(c) {
+    activeColor.copy(c);
+    glowMat.color.copy(c);
+    glowMat.emissive.copy(c);
+    rimMat.color.copy(c);
+    rimMat.emissive.copy(c);
+    pulseRingMat.color.copy(c);
+    pulseRingMat.emissive.copy(c);
+    scanLineMat.color.copy(c);
+    shadowMat.color.copy(c);
+    dirLight.color.copy(c);
+  }
 
   // ── Animation Loop ───────────────────────────────────────────────────────
   let t = 0;
@@ -185,13 +207,13 @@
       // When pointing ahead (relAngle ≈ 0): tilt back into screen depth
       // When pointing left/right: tilt sideways with perspective lean
       const tiltForward = Math.cos(relAngle) * 0.55; // -0.55 to 0.55 rad
-      const tiltSide = Math.sin(relAngle) * 0.45; // lean left/right
+      const tiltSide = Math.sin(relAngle) * 0.45;    // lean left/right
 
       // Build orientation: Y rotation for compass + XZ tilt for 3D feel
       const euler = new THREE.Euler(
-        -0.3 + tiltForward * 0.6, // pitch (forward/back tilt)
-        relAngle, // yaw (compass rotation)
-        tiltSide * 0.4, // roll (side lean)
+        -0.3 + tiltForward * 0.6,  // pitch (forward/back tilt)
+        relAngle,                   // yaw (compass rotation)
+        tiltSide * 0.4,             // roll (side lean)
         "YXZ",
       );
       targetQuat.setFromEuler(euler);
@@ -214,6 +236,15 @@
       const em = 1.0 + Math.sin(t * 2.5) * 0.35;
       glowMat.emissiveIntensity = em;
       headRim.material.opacity = 0.2 + Math.sin(t * 2.5) * 0.12;
+
+      // ── Auto color-cycle (hue shift) when no manual color set ──
+      if (!manualColor) {
+        const hue = (t * 8) % 360;          // full cycle every ~45 s
+        const cycled = new THREE.Color().setHSL(hue / 360, 1.0, 0.55);
+        applyColor(cycled);
+        // Keep 2D canvas arrow in sync
+        if (typeof window._arrowColorSync === 'function') window._arrowColorSync(cycled);
+      }
     } else {
       // Fade out when no destination
       arrowGroup.visible = false;
