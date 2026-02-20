@@ -287,6 +287,16 @@
         </div>
         <div class="settings-item">
           <div class="settings-item-info">
+            <span class="settings-item-title">☀️ Light Mode</span>
+            <span class="settings-item-desc">Switch to light theme</span>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="setting-light-mode" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <div class="settings-item-info">
             <span class="settings-item-title">Card Blur</span>
             <span class="settings-item-desc">Glassmorphism blur strength</span>
           </div>
@@ -295,6 +305,7 @@
             <span class="toggle-slider"></span>
           </label>
         </div>
+
       </div>
 
       <div class="settings-group">
@@ -311,6 +322,30 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- ARRIVED OVERLAY                    -->
+  <!-- ═══════════════════════════════════ -->
+  <div id="arrived-overlay" class="arrived-overlay hidden">
+    <div class="arrived-card">
+      <div class="arrived-checkmark">✅</div>
+      <div class="arrived-icon" id="arrived-icon">📍</div>
+      <h2 class="arrived-title">You've Arrived!</h2>
+      <p class="arrived-dest-name" id="arrived-dest-name">—</p>
+      <p class="arrived-desc" id="arrived-desc">—</p>
+      <div class="arrived-details">
+        <div class="arrived-detail-row" id="arrived-hours-row">
+          <span class="arrived-detail-icon">🕐</span>
+          <span id="arrived-hours">—</span>
+        </div>
+        <div class="arrived-detail-row" id="arrived-contact-row">
+          <span class="arrived-detail-icon">📞</span>
+          <span id="arrived-contact">—</span>
+        </div>
+      </div>
+      <button id="arrived-dismiss-btn" class="arrived-dismiss-btn">Done</button>
     </div>
   </div>
 

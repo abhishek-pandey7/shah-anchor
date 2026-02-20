@@ -354,13 +354,36 @@ window._arrowColorSync = function (threeColor) {
 document.getElementById("setting-arrow-color").addEventListener("change", (e) => {
   const val = e.target.value;
   if (val === "auto") {
-    // Resume rainbow cycle (pass null to 3D arrow)
     if (typeof window.setArrowColor === 'function') window.setArrowColor(null);
   } else {
     arrowColor = val;
     if (typeof window.setArrowColor === 'function') window.setArrowColor(val);
   }
 });
+
+// ── Light / Dark mode ────────────────────────────────────────────────────
+function applyLightMode(on) {
+  document.body.classList.toggle("light-mode", on);
+  localStorage.setItem("usia_light_mode", on ? "1" : "0");
+}
+
+// Restore on load
+const savedTheme = localStorage.getItem("usia_light_mode");
+if (savedTheme === "1") {
+  document.body.classList.add("light-mode");
+  // Sync checkbox when settings page opens (checked lazily)
+}
+
+document.getElementById("setting-light-mode").addEventListener("change", (e) => {
+  applyLightMode(e.target.checked);
+});
+
+// Sync checkbox when settings page is opened
+document.getElementById("settings-btn").addEventListener("click", () => {
+  const cb = document.getElementById("setting-light-mode");
+  if (cb) cb.checked = document.body.classList.contains("light-mode");
+});
+
 
 // ═══════════════════════════════════════════
 // GPS INITIALIZATION
@@ -780,10 +803,12 @@ async function updateNav() {
 
   if (hasArrived(route.distance)) {
     currentBearing = null;
+    window._arArrowVisible = false;
     distLabel.textContent = "✅ Arrived at " + currentDest.name;
     arrivedMsg.classList.remove("hidden");
     clearSteps();
     if (navInterval) { clearInterval(navInterval); navInterval = null; }
+    showArrivedOverlay(currentDest);
     return;
   }
 
@@ -807,6 +832,37 @@ async function updateNav() {
 
   showSteps(route.steps);
 }
+
+// ═══════════════════════════════════════════
+// ARRIVED OVERLAY
+// ═══════════════════════════════════════════
+
+function showArrivedOverlay(place) {
+  const overlay = document.getElementById("arrived-overlay");
+  if (!overlay) return;
+
+  document.getElementById("arrived-icon").textContent = place.icon || "📍";
+  document.getElementById("arrived-dest-name").textContent = place.name || "Destination";
+  document.getElementById("arrived-desc").textContent = place.description || "";
+  document.getElementById("arrived-hours").textContent = place.hours || "—";
+  document.getElementById("arrived-contact").textContent = place.contact || "—";
+
+  // Hide rows if no data
+  document.getElementById("arrived-hours-row").style.display = place.hours ? "" : "none";
+  document.getElementById("arrived-contact-row").style.display = place.contact ? "" : "none";
+
+  overlay.classList.remove("hidden");
+
+  // Haptic feedback on devices that support it
+  if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+}
+
+document.getElementById("arrived-dismiss-btn").addEventListener("click", () => {
+  document.getElementById("arrived-overlay").classList.add("hidden");
+  // Reset navigation
+  placeSelect.value = "";
+  placeSelect.dispatchEvent(new Event("change"));
+});
 
 // ═══════════════════════════════════════════
 // HIGHLIGHT
