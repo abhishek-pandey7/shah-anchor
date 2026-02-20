@@ -382,7 +382,32 @@ document.getElementById("setting-light-mode").addEventListener("change", (e) => 
 document.getElementById("settings-btn").addEventListener("click", () => {
   const cb = document.getElementById("setting-light-mode");
   if (cb) cb.checked = document.body.classList.contains("light-mode");
+  const vcb = document.getElementById("setting-voice");
+  if (vcb) vcb.checked = voiceEnabled;
 });
+
+// ── Voice Navigation ─────────────────────────────────────────────────────
+let voiceEnabled = localStorage.getItem("usia_voice") !== "0"; // default ON
+
+function speak(text) {
+  if (!voiceEnabled) return;
+  if (!window.speechSynthesis) return;
+  // Cancel any ongoing utterance
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-IN";   // Indian English
+  u.rate = 0.95;
+  u.pitch = 1.0;
+  u.volume = 1.0;
+  speechSynthesis.speak(u);
+}
+
+document.getElementById("setting-voice").addEventListener("change", (e) => {
+  voiceEnabled = e.target.checked;
+  localStorage.setItem("usia_voice", voiceEnabled ? "1" : "0");
+  if (!voiceEnabled) speechSynthesis.cancel();
+});
+
 
 
 // ═══════════════════════════════════════════
@@ -773,6 +798,9 @@ placeSelect.addEventListener("change", () => {
     return;
   }
   currentDest = PLACES[key];
+  spokenMilestones.clear();          // reset milestones for new destination
+  spokenDirection = null;            // reset direction announcement
+  speak(`Navigating to ${currentDest.name}`);
   showMiniBar();
   showPopup(currentDest);
   updateNav();
@@ -780,6 +808,9 @@ placeSelect.addEventListener("change", () => {
   navInterval = setInterval(updateNav, 15000);
 });
 
+// ── Voice milestone tracking ───────────────────────────────────────────────
+const spokenMilestones = new Set();
+let spokenDirection = null;
 
 // ═══════════════════════════════════════════
 // UPDATE NAV
@@ -808,6 +839,7 @@ async function updateNav() {
     arrivedMsg.classList.remove("hidden");
     clearSteps();
     if (navInterval) { clearInterval(navInterval); navInterval = null; }
+    speak(`You have arrived at ${currentDest.name}`);
     showArrivedOverlay(currentDest);
     return;
   }
@@ -826,9 +858,27 @@ async function updateNav() {
     ? Math.round(route.distance) + " m"
     : (route.distance / 1000).toFixed(2) + " km";
 
-  distLabel.textContent =
-    getCardinal(currentBearing) + "  ·  " +
-    distText + "  →  " + currentDest.name;
+  // ── Distance milestone announcements ──
+  const d = route.distance;
+  for (const m of [500, 250, 100, 50]) {
+    if (d <= m && !spokenMilestones.has(m)) {
+      spokenMilestones.add(m);
+      const ds = m >= 1000 ? (m / 1000) + " kilometre" : m + " metres";
+      speak(`${ds} remaining`);
+      break;
+    }
+  }
+
+  // ── First-time direction announcement ──
+  const cardinal = getCardinal(currentBearing);
+  if (spokenDirection !== cardinal) {
+    spokenDirection = cardinal;
+    if (spokenMilestones.size === 0) {
+      speak(`Head ${cardinal.toLowerCase()} for ${distText}`);
+    }
+  }
+
+  distLabel.textContent = distText + "  →  " + currentDest.name;
 
   showSteps(route.steps);
 }

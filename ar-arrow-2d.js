@@ -64,54 +64,65 @@
 
         const cx = w / 2;
         const cy = h * 0.52;
-        const size = Math.min(w, h) * 0.18;
+        const s = Math.min(w, h) * 0.14;  // base unit
         const angle = (angleDeg * Math.PI) / 180;
 
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(angle);
 
-        // Outer glow ring
+        // ── Outer soft glow halo ──
+        const halo = ctx.createRadialGradient(0, -s * 0.3, s * 0.2, 0, -s * 0.3, s * 1.6);
+        halo.addColorStop(0, hexToRgba(arrowHex, 0.18));
+        halo.addColorStop(1, hexToRgba(arrowHex, 0));
         ctx.beginPath();
-        ctx.arc(0, 0, size * 1.15, 0, Math.PI * 2);
-        ctx.strokeStyle = hexToRgba(arrowHex, 0.12);
-        ctx.lineWidth = size * 0.22;
-        ctx.stroke();
-
-        // Inner ring
-        ctx.beginPath();
-        ctx.arc(0, 0, size * 0.88, 0, Math.PI * 2);
-        ctx.strokeStyle = hexToRgba(arrowHex, 0.30);
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Shaft
-        ctx.beginPath();
-        ctx.moveTo(0, size * 0.55);
-        ctx.lineTo(0, -size * 0.45);
-        ctx.strokeStyle = arrowHex;
-        ctx.lineWidth = size * 0.12;
-        ctx.lineCap = "round";
-        ctx.shadowColor = arrowHex;
-        ctx.shadowBlur = size * 0.35;
-        ctx.stroke();
-
-        // Arrowhead
-        ctx.beginPath();
-        ctx.moveTo(0, -size * 0.88);
-        ctx.lineTo(-size * 0.30, -size * 0.44);
-        ctx.lineTo(size * 0.30, -size * 0.44);
-        ctx.closePath();
-        ctx.fillStyle = arrowHex;
-        ctx.shadowColor = arrowHex;
-        ctx.shadowBlur = size * 0.4;
+        ctx.ellipse(0, -s * 0.3, s * 1.6, s * 1.6, 0, 0, Math.PI * 2);
+        ctx.fillStyle = halo;
         ctx.fill();
 
-        // Center dot
+        // ── Shadow (depth layer) ──
+        ctx.shadowColor = arrowHex;
+        ctx.shadowBlur = s * 0.7;
+
+        // ── Arrow shaft ──
+        const shaftW = s * 0.38;
+        const shaftT = -s * 0.22;   // top (connects to head)
+        const shaftB = s * 0.98;   // bottom (tail)
+        const radius = shaftW / 2;
+
         ctx.beginPath();
-        ctx.arc(0, 0, size * 0.08, 0, Math.PI * 2);
-        ctx.fillStyle = "#ffffff";
+        // Rounded bottom, straight top
+        ctx.moveTo(-shaftW / 2, shaftT);
+        ctx.lineTo(shaftW / 2, shaftT);
+        ctx.lineTo(shaftW / 2, shaftB - radius);
+        ctx.quadraticCurveTo(shaftW / 2, shaftB, 0, shaftB);
+        ctx.quadraticCurveTo(-shaftW / 2, shaftB, -shaftW / 2, shaftB - radius);
+        ctx.closePath();
+        ctx.fillStyle = arrowHex;
+        ctx.fill();
+
+        // ── Arrowhead (wide chevron) ──
+        const tipY = -s * 1.18;
+        const baseY = -s * 0.22;
+        const halfW = s * 0.72;
+        const notchY = -s * 0.48;  // inner v-notch
+
+        ctx.beginPath();
+        ctx.moveTo(0, tipY);
+        ctx.lineTo(halfW, baseY);
+        ctx.lineTo(s * 0.20, notchY);
+        ctx.lineTo(-s * 0.20, notchY);
+        ctx.lineTo(-halfW, baseY);
+        ctx.closePath();
+        ctx.fillStyle = arrowHex;
+        ctx.shadowBlur = s * 0.9;
+        ctx.fill();
+
+        // ── White highlight glint on head tip ──
         ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.ellipse(0, tipY + s * 0.15, s * 0.08, s * 0.16, 0, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
         ctx.fill();
 
         ctx.restore();

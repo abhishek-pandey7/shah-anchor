@@ -9,14 +9,17 @@ A browser-based **Augmented Reality campus navigation app** built for SAKEC (Sha
 | Feature | Details |
 |---------|---------|
 | 📷 **Live Camera Feed** | Rear camera streamed as fullscreen background via `getUserMedia` |
-| 🧭 **AR Navigation Arrow** | Glowing directional arrow overlaid on camera feed, rotates with compass |
+| 🗺️ **AR Navigation Arrow** | Glowing 2D directional arrow overlaid on camera feed, rotates with compass |
 | 📍 **GPS Routing** | Real road routes via OSRM; falls back to straight-line bearing |
 | 🔍 **Destination Search** | Live-filter search overlay; collapses to a floating 🔍 button after selection |
 | 🧲 **Live Compass** | Tap 🧭 to show a rotating compass rose with N/E/S/W labels and degree readout |
-| 🚨 **Emergency Mode** | One-tap routing to nearest hospital, pharmacy, or police station |
+| � **Voice Navigation** | Spoken announcements at destination select, distance milestones (500/250/100/50m), and arrival |
+| ✅ **Arrived Panel** | Slide-up card on arrival with destination info, hours, contact, and haptic feedback |
+| �🚨 **Emergency Mode** | One-tap routing to nearest hospital, pharmacy, or police station |
 | 🎨 **Arrow Color Picker** | Static colors or 🌈 Rainbow auto-cycle (slow HSL hue shift) |
-| 👤 **Profile Page** | Name, age, and a Three.js 3D astronaut avatar |
-| ⚙️ **Settings** | GPS accuracy, auto-reroute, AR labels, arrow color, card blur |
+| ☀️ **Light / Dark Mode** | Toggle in Settings; persists across refreshes |
+| 👤 **Profile Page** | Name and age, saved to localStorage |
+| ⚙️ **Settings** | Voice nav, light mode, card blur, arrow color — all persisted |
 
 ---
 
@@ -24,9 +27,9 @@ A browser-based **Augmented Reality campus navigation app** built for SAKEC (Sha
 
 ```
 shah-anchor2/
-├── index.html          # App shell, all pages & overlays
-├── style.css           # Full dark theme, glassmorphism UI
-├── app.js              # Core app logic (GPS, compass, routing, UI)
+├── index.html          # App shell — all pages & overlays
+├── style.css           # Dark/light theme, glassmorphism UI
+├── app.js              # Core logic: GPS, compass, routing, voice, UI
 ├── navigation.js       # Haversine distance, bearing, OSRM routing
 ├── locations.js        # All POI definitions (name, coords, emergency flag)
 ├── ar-arrow-2d.js      # ✅ ACTIVE — flat canvas 2D directional arrow
@@ -63,7 +66,7 @@ serve .
 ngrok http 3000
 ```
 
-Open the **ngrok HTTPS URL** on your phone browser (camera won't work over plain `http://`).
+Open the **ngrok HTTPS URL** on your phone browser.
 
 ---
 
@@ -73,13 +76,28 @@ Open the **ngrok HTTPS URL** on your phone browser (camera won't work over plain
 |-----------|-----|
 | **Camera** | Live video feed background |
 | **Location (GPS)** | Calculate distance & bearing to destination |
-| **Device Orientation** | Compass heading for rotating the arrow (iOS needs explicit tap to grant) |
+| **Device Orientation** | Compass heading to rotate the arrow (iOS requires explicit tap) |
+
+---
+
+## Voice Navigation
+
+Spoken via the browser's built-in `SpeechSynthesis` API (no library needed):
+
+| Trigger | Example |
+|---------|---------|
+| Destination selected | *"Navigating to Library"* |
+| First route update | *"Head north-west for 320 m"* |
+| Milestone crossed | *"250 metres remaining"* |
+| Arrived | *"You have arrived at Library"* |
+
+Toggle in **Settings → 🔊 Voice Navigation**. Preference is saved.
 
 ---
 
 ## Adding / Editing Destinations
 
-All locations live in `locations.js`. Add a new entry following this shape:
+All locations live in `locations.js`. Add a new entry:
 
 ```js
 your_key: {
@@ -91,7 +109,7 @@ your_key: {
   description: 'Short description',
   hours: '9AM – 6PM',
   contact: '+91 XXXXX XXXXX',
-  isEmergency: false   // set true to include in emergency routing
+  isEmergency: false   // set true to appear in emergency routing
 }
 ```
 
@@ -101,12 +119,13 @@ your_key: {
 
 | Layer | Technology |
 |-------|-----------|
-| Camera & AR overlay | `navigator.mediaDevices.getUserMedia` + HTML Canvas |
+| Camera & AR overlay | `getUserMedia` + HTML Canvas |
 | 3D Arrow (standby) | [Three.js r128](https://threejs.org/) |
 | GPS AR entities | [A-Frame 1.4](https://aframe.io/) + [AR.js](https://ar-js-org.github.io/AR.js-Docs/) |
 | Road Routing | [OSRM Public API](http://router.project-osrm.org/) |
+| Voice | Web Speech API (`SpeechSynthesis`) |
 | Fonts | [Inter — Google Fonts](https://fonts.google.com/specimen/Inter) |
-| Hosting (dev) | `serve` + `ngrok` |
+| Dev Server | `serve` + `ngrok` |
 
 ---
 
@@ -114,11 +133,12 @@ your_key: {
 
 - **iOS compass** requires the user to tap 🧭 to trigger `DeviceOrientationEvent.requestPermission()`
 - **GPS accuracy** outdoors is ~5–20 m; indoors GPS may not lock
-- **OSRM routing** requires internet; offline falls back to straight-line bearing
-- Camera + GPS + orientation all need **HTTPS** — use ngrok or deploy to a secure host
+- **OSRM routing** needs internet; offline falls back to straight-line bearing
+- Camera, GPS, and orientation all require **HTTPS** — use ngrok or deploy to a secure host
+- **iOS voice** requires the first `speak()` to be triggered by a user gesture (destination tap satisfies this)
 
 ---
 
 ## License
 
-MIT — built for SAKEC campus by the project team.
+MIT — built for SAKEC campus.
